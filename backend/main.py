@@ -84,7 +84,9 @@ def create_audit(audit_in: schemas.AuditCreate, db: Session = Depends(get_db)):
         confidence=audit_in.confidence,
         memo=audit_in.memo,
         proposed_lat=audit_in.proposed_lat,
-        proposed_lng=audit_in.proposed_lng
+        proposed_lng=audit_in.proposed_lng,
+        proposed_name=audit_in.proposed_name,
+        proposed_address=audit_in.proposed_address
     )
     db.add(db_audit)
     db.commit()

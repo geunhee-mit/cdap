@@ -20,6 +20,8 @@ export interface AuditSubmitData {
   memo?: string;
   proposed_lat?: number;
   proposed_lng?: number;
+  proposed_name?: string;
+  proposed_address?: string;
   errors: { category: string; subtype: string }[];
   evidences: { type: string; url?: string; photo?: string }[];
 }

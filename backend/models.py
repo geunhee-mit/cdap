@@ -33,6 +33,8 @@ class Audit(Base):
     memo = Column(Text, nullable=True)
     proposed_lat = Column(Float, nullable=True)
     proposed_lng = Column(Float, nullable=True)
+    proposed_name = Column(String, nullable=True)
+    proposed_address = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     shelter = relationship("Shelter", back_populates="audits")
