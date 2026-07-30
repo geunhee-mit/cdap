@@ -12,10 +12,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Map, MapMarker, Roadview, useKakaoLoader } from "react-kakao-maps-sdk";
 
-const DashboardMap = dynamic(() => import("@/components/DashboardMap"), { ssr: false });
-
 function AuditPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const shelterId = searchParams.get("id");
 

@@ -10,7 +10,6 @@ import { Textarea } from "./ui/textarea";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Checkbox } from "./ui/checkbox";
 
 const formSchema = z.object({
   result: z.string().min(1, { message: "판정 결과를 선택해주세요." }),
