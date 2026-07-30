@@ -8,16 +8,27 @@ import models
 import schemas
 from database import engine, get_db
 
-models.Base.metadata.create_all(bind=engine)
+from sqlalchemy import func, text
+
+def run_migrations():
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        with engine.connect() as conn:
+            conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_lat DOUBLE PRECISION;"))
+            conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_lng DOUBLE PRECISION;"))
+            conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_name VARCHAR;"))
+            conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_address VARCHAR;"))
+            conn.commit()
+    except Exception as e:
+        print(f"Migration notice: {e}")
+
+run_migrations()
 
 app = FastAPI(
     title="CDAP API",
     description="Civic Data Audit Platform MVP API",
     version="1.0.0"
 )
-
-# Get allowed origins from env (comma-separated) or default to localhost
-from sqlalchemy import func
 
 app.add_middleware(
     CORSMiddleware,
@@ -71,49 +82,54 @@ def get_shelter(shelter_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/audit", response_model=schemas.AuditResponse)
 def create_audit(audit_in: schemas.AuditCreate, db: Session = Depends(get_db)):
-    # Verify shelter exists
-    shelter = db.query(models.Shelter).filter(models.Shelter.id == audit_in.shelter_id).first()
-    if not shelter:
-        raise HTTPException(status_code=404, detail="Shelter not found")
+    try:
+        # Verify shelter exists
+        shelter = db.query(models.Shelter).filter(models.Shelter.id == audit_in.shelter_id).first()
+        if not shelter:
+            raise HTTPException(status_code=404, detail="Shelter not found")
 
-    # Create Audit
-    db_audit = models.Audit(
-        shelter_id=audit_in.shelter_id,
-        user_id=audit_in.user_id,
-        result=audit_in.result,
-        confidence=audit_in.confidence,
-        memo=audit_in.memo,
-        proposed_lat=audit_in.proposed_lat,
-        proposed_lng=audit_in.proposed_lng,
-        proposed_name=audit_in.proposed_name,
-        proposed_address=audit_in.proposed_address
-    )
-    db.add(db_audit)
-    db.commit()
-    db.refresh(db_audit)
-
-    # Create Errors
-    for err in audit_in.errors:
-        db_error = models.Error(
-            audit_id=db_audit.id,
-            category=err.category,
-            subtype=err.subtype
+        # Create Audit
+        db_audit = models.Audit(
+            shelter_id=audit_in.shelter_id,
+            user_id=audit_in.user_id,
+            result=audit_in.result,
+            confidence=audit_in.confidence,
+            memo=audit_in.memo,
+            proposed_lat=audit_in.proposed_lat,
+            proposed_lng=audit_in.proposed_lng,
+            proposed_name=audit_in.proposed_name,
+            proposed_address=audit_in.proposed_address
         )
-        db.add(db_error)
+        db.add(db_audit)
+        db.commit()
+        db.refresh(db_audit)
 
-    # Create Evidences
-    for ev in audit_in.evidences:
-        db_evidence = models.Evidence(
-            audit_id=db_audit.id,
-            type=ev.type,
-            url=ev.url,
-            photo=ev.photo
-        )
-        db.add(db_evidence)
+        # Create Errors
+        for err in audit_in.errors:
+            db_error = models.Error(
+                audit_id=db_audit.id,
+                category=err.category,
+                subtype=err.subtype
+            )
+            db.add(db_error)
 
-    db.commit()
-    db.refresh(db_audit)
-    return db_audit
+        # Create Evidences
+        for ev in audit_in.evidences:
+            db_evidence = models.Evidence(
+                audit_id=db_audit.id,
+                type=ev.type,
+                url=ev.url,
+                photo=ev.photo
+            )
+            db.add(db_evidence)
+
+        db.commit()
+        db.refresh(db_audit)
+        return db_audit
+    except Exception as e:
+        db.rollback()
+        print(f"Error in create_audit: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
