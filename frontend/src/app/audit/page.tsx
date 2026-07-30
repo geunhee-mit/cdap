@@ -16,7 +16,7 @@ function AuditPageContent() {
   const [proposedLocation, setProposedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [loadingMap] = useKakaoLoader({
-    appkey: "1f24178e01d7c175e45cc35e52c604b0",
+    appkey: process.env.NEXT_PUBLIC_KAKAO_MAP_KEY || "",
     libraries: ["services", "clusterer"],
   });
 

@@ -9,7 +9,7 @@ from geoalchemy2.elements import WKTElement
 
 Base.metadata.create_all(bind=engine)
 
-SERVICE_KEY = os.getenv("SHELTER_API_KEY", "IM611P23GBVXQE60")
+SERVICE_KEY = os.getenv("SHELTER_API_KEY", "")
 BASE_URL = "https://www.safetydata.go.kr/V2/api/DSSP-IF-10941"
 
 def fetch_page(page: int, num_rows: int = 1000):

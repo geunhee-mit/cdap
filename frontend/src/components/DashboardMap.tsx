@@ -7,7 +7,7 @@ import { Map, MapMarker, MarkerClusterer, useKakaoLoader } from "react-kakao-map
 export default function DashboardMap({ shelters }: { shelters: Shelter[] }) {
   const router = useRouter();
   const [loading, error] = useKakaoLoader({
-    appkey: "1f24178e01d7c175e45cc35e52c604b0",
+    appkey: process.env.NEXT_PUBLIC_KAKAO_MAP_KEY || "",
     libraries: ["services", "clusterer"],
   });
 
