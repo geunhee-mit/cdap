@@ -14,7 +14,7 @@ BASE_URL = "https://www.safetydata.go.kr/V2/api/DSSP-IF-10941"
 
 def fetch_page(page: int, num_rows: int = 1000):
     url = f"{BASE_URL}?serviceKey={SERVICE_KEY}&numOfRows={num_rows}&pageNo={page}"
-    req = urllib.request.Request(url)
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
     response = urllib.request.urlopen(req, timeout=30)
     return json.loads(response.read().decode("utf-8"))
 
