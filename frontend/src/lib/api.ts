@@ -32,6 +32,12 @@ export async function fetchStats() {
   return res.json();
 }
 
+export async function fetchRecentAudits() {
+  const res = await fetch(`${API_BASE_URL}/api/recent-audits`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function fetchShelters(): Promise<Shelter[]> {
   const res = await fetch(`${API_BASE_URL}/api/shelters`);
   if (!res.ok) throw new Error("Failed to fetch shelters");

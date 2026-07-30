@@ -68,6 +68,28 @@ def get_stats(db: Session = Depends(get_db)):
         "pending_review": 0
     }
 
+@app.get("/api/recent-audits")
+def get_recent_audits(limit: int = 5, db: Session = Depends(get_db)):
+    try:
+        audits = db.query(models.Audit).order_by(models.Audit.created_at.desc()).limit(limit).all()
+        res = []
+        for a in audits:
+            shelter_name = a.shelter.facility_name if a.shelter else "대피소"
+            res.append({
+                "id": a.id,
+                "shelter_id": a.shelter_id,
+                "facility_name": shelter_name,
+                "result": a.result,
+                "confidence": a.confidence,
+                "memo": a.memo,
+                "proposed_name": a.proposed_name,
+                "created_at": a.created_at.isoformat() if a.created_at else None
+            })
+        return res
+    except Exception as e:
+        print(f"Error fetching recent audits: {e}")
+        return []
+
 @app.get("/api/shelters", response_model=List[schemas.ShelterResponse])
 def get_shelters(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
     shelters = db.query(models.Shelter).offset(skip).limit(limit).all()
