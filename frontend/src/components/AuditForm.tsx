@@ -184,7 +184,7 @@ export default function AuditForm({ shelter }: { shelter: Shelter }) {
                 <Label className="text-lg font-bold">3) 검증 근거</Label>
                 <p className="text-sm text-neutral-500 mb-4">어떤 정보를 바탕으로 검증하셨나요? *</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {["Google Maps", "Naver Maps", "Road View", "현장 방문", "사진 촬영", "기관 홈페이지"].map((ev) => (
+                  {["카카오 지도", "카카오 로드뷰", "외부 지도 (네이버/구글)", "현장 방문", "사진 촬영", "기관 홈페이지"].map((ev) => (
                     <label key={ev} className="flex items-center space-x-3 cursor-pointer p-3 border rounded-lg hover:bg-neutral-50/10">
                       <input 
                         type="checkbox" 
