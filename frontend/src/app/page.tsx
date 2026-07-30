@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchShelters } from "@/lib/api";
+import { fetchShelters, fetchStats } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MapPin, ShieldAlert, CheckCircle, Clock } from "lucide-react";
