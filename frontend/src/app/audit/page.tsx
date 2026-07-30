@@ -4,9 +4,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchShelters } from "@/lib/api";
 import AuditForm from "@/components/AuditForm";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Info, MapPin, Layers, RotateCcw } from "lucide-react";
+import { Loader2, ArrowLeft, Info, MapPin, Layers, RotateCcw, Search, Building2 } from "lucide-react";
 import Link from "next/link";
 import { Map, MapMarker, Roadview, useKakaoLoader } from "react-kakao-maps-sdk";
 
@@ -15,6 +15,13 @@ function AuditPageContent() {
   const searchParams = useSearchParams();
   const shelterId = searchParams.get("id");
   const [proposedLocation, setProposedLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // Kakao Places Search State
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchExecuted, setSearchExecuted] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const [loadingMap] = useKakaoLoader({
     appkey: process.env.NEXT_PUBLIC_KAKAO_MAP_KEY || "",
@@ -26,15 +33,50 @@ function AuditPageContent() {
     queryFn: fetchShelters,
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-100">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      </div>
-    );
-  }
-
   const shelter = shelters?.find((s) => s.id.toString() === shelterId);
+
+  useEffect(() => {
+    if (shelter) {
+      setSearchKeyword(shelter.facility_name);
+      setMapCenter({ lat: shelter.lat || 37.5665, lng: shelter.lng || 126.9780 });
+      setProposedLocation(null);
+      setSearchResults([]);
+      setSearchExecuted(false);
+    }
+  }, [shelterId, shelter]);
+
+  const handleKakaoSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchKeyword.trim()) return;
+    if (typeof window === "undefined" || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      alert("카카오지도 서비스 로딩 중입니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchExecuted(true);
+
+    const ps = new window.kakao.maps.services.Places();
+    ps.keywordSearch(searchKeyword.trim(), (data, status) => {
+      setIsSearching(false);
+      if (status === window.kakao.maps.services.Status.OK) {
+        setSearchResults(data);
+        if (data.length > 0) {
+          const first = data[0];
+          setMapCenter({ lat: parseFloat(first.y), lng: parseFloat(first.x) });
+        }
+      } else {
+        setSearchResults([]);
+      }
+    });
+  };
+
+  const handleSelectSearchResult = (place: any) => {
+    const lat = parseFloat(place.y);
+    const lng = parseFloat(place.x);
+    setProposedLocation({ lat, lng });
+    setMapCenter({ lat, lng });
+  };
 
   const handleNextRandomShelter = () => {
     if (!shelters || shelters.length === 0) return;
@@ -44,6 +86,14 @@ function AuditPageContent() {
     setProposedLocation(null);
     router.push(`/audit?id=${random.id}`);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-slate-950 text-slate-100">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   if (shelterId && !shelter) {
     return (
@@ -129,11 +179,66 @@ function AuditPageContent() {
             </Card>
           </div>
 
-          {/* Panel 2 (Center on desktop): Map & Roadview */}
-          <div className="lg:col-span-5 order-2 lg:order-2 flex flex-col gap-4 min-h-[500px] lg:h-full">
+          {/* Panel 2 (Center on desktop): Map & Roadview & Kakao Live Search */}
+          <div className="lg:col-span-5 order-2 lg:order-2 flex flex-col gap-4 min-h-[550px] lg:h-full">
             
+            {/* Kakao Live Places Search Bar */}
+            <div className="bg-slate-900/90 border border-slate-800/90 p-3 rounded-2xl shadow-lg space-y-2">
+              <form onSubmit={handleKakaoSearch} className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    placeholder="카카오지도 실시간 장소/시설명 검색..."
+                    className="w-full bg-slate-950 border border-slate-800 text-xs text-white pl-9 pr-3 py-2 rounded-xl focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSearching}
+                  className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md shrink-0 flex items-center"
+                >
+                  {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                  검색
+                </button>
+              </form>
+
+              {/* Kakao Search Results Dropdown List */}
+              {searchExecuted && (
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pt-1 text-xs border-t border-slate-800/60">
+                  {searchResults.length > 0 ? (
+                    searchResults.slice(0, 4).map((place) => (
+                      <div
+                        key={place.id}
+                        onClick={() => handleSelectSearchResult(place)}
+                        className="p-2 bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 rounded-xl cursor-pointer transition-all flex items-center justify-between group"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <div className="font-bold text-blue-300 truncate group-hover:text-blue-200">
+                            {place.place_name}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">
+                            {place.road_address_name || place.address_name}
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-1 rounded-md shrink-0 font-bold">
+                          선택 & 좌표 적용
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-3 bg-red-950/40 border border-red-900/50 rounded-xl text-red-400 text-[11px] font-semibold text-center">
+                      ❌ 카카오지도 장소 검색 결과 0건 — 시설 미등록 또는 폐쇄/이전 가능성이 높습니다.
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Kakao Map Box */}
-            <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden h-[300px] sm:h-[340px] lg:flex-1 relative">
+            <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden h-[260px] sm:h-[290px] lg:flex-1 relative">
               {loadingMap ? (
                 <div className="flex items-center justify-center h-full text-slate-400 text-xs">지도 로딩 중...</div>
               ) : shelter && shelter.lat && shelter.lng ? (
@@ -156,7 +261,7 @@ function AuditPageContent() {
                     )}
                   </div>
                   <Map
-                    center={{ lat: shelter.lat, lng: shelter.lng }}
+                    center={mapCenter || { lat: shelter.lat, lng: shelter.lng }}
                     style={{ width: "100%", height: "100%" }}
                     level={3}
                     onClick={(_map, mouseEvent) => {
@@ -184,7 +289,7 @@ function AuditPageContent() {
             </div>
 
             {/* Kakao Roadview Box */}
-            <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden h-[260px] sm:h-[300px] lg:flex-1">
+            <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden h-[240px] sm:h-[260px] lg:flex-1">
                {loadingMap ? (
                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">로드뷰 로딩 중...</div>
                ) : shelter && shelter.lat && shelter.lng ? (
