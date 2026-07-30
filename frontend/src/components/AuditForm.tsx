@@ -11,12 +11,12 @@ import { Textarea } from "./ui/textarea";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Sparkles, Home, RotateCcw, UserCheck, Search, Loader2 } from "lucide-react";
+import { Sparkles, Home, RotateCcw, UserCheck, Search, Loader2, Award } from "lucide-react";
 
 const formSchema = z.object({
   result: z.string().min(1, { message: "판정 결과를 선택해주세요." }),
   category: z.array(z.string()).optional(),
-  evidence: z.array(z.string()).min(1, { message: "최소 1개의 검증 근거를 선택하셔야 다음 단계로 진행할 수 있습니다." }),
+  evidence: z.array(z.string()).optional(),
   confidence: z.number().min(1).max(5),
   proposed_name: z.string().optional(),
   proposed_address: z.string().optional(),
@@ -45,8 +45,10 @@ export default function AuditForm({
   const [step, setStep] = useState(1); // 1 to 5
   const [stepError, setStepError] = useState<string | null>(null);
   
-  // Nickname session state
+  // Nickname session & Modal state
   const [nickname, setNickname] = useState("익명의 시민");
+  const [showNicknameModal, setShowNicknameModal] = useState(false);
+  const [tempNicknameInput, setTempNicknameInput] = useState("");
 
   // Kakao Places Search state inside Step 3
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -75,6 +77,31 @@ export default function AuditForm({
     },
   });
 
+  // Check initial Nickname on session start
+  useEffect(() => {
+    const saved = localStorage.getItem("cdap_nickname");
+    if (saved) {
+      setNickname(saved);
+      setShowNicknameModal(false);
+    } else {
+      setShowNicknameModal(true);
+    }
+  }, []);
+
+  const handleSaveNicknameModal = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const val = tempNicknameInput.trim() || "익명의 시민";
+    setNickname(val);
+    localStorage.setItem("cdap_nickname", val);
+    setShowNicknameModal(false);
+  };
+
+  const saveNickname = (val: string) => {
+    const trimmed = val.trim() || "익명의 시민";
+    setNickname(trimmed);
+    localStorage.setItem("cdap_nickname", trimmed);
+  };
+
   // Reset form state completely whenever shelter changes!
   useEffect(() => {
     reset({
@@ -93,17 +120,6 @@ export default function AuditForm({
     setSearchResults([]);
     setSearchExecuted(false);
   }, [shelter.id, reset, shelter.facility_name]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("cdap_nickname");
-    if (saved) setNickname(saved);
-  }, []);
-
-  const saveNickname = (val: string) => {
-    const trimmed = val.trim() || "익명의 시민";
-    setNickname(trimmed);
-    localStorage.setItem("cdap_nickname", trimmed);
-  };
 
   const watchResult = watch("result");
   const watchCategory = watch("category") || [];
@@ -172,13 +188,13 @@ export default function AuditForm({
       subtype: cat
     })) || [];
 
-    const evidenceList = values.evidence ? values.evidence.map(ev => ({ type: ev })) : [];
+    const evidenceList = values.evidence ? values.evidence.map(ev => ({ type: ev })) : [{ type: "판단 보류" }];
 
     mutation.mutate({
       shelter_id: shelter.id,
       user_id: nickname, 
       result: values.result,
-      confidence: values.confidence,
+      confidence: values.confidence || 3,
       memo: values.memo,
       proposed_lat: proposedLocation?.lat,
       proposed_lng: proposedLocation?.lng,
@@ -207,6 +223,18 @@ export default function AuditForm({
         setStepError("판정 결과를 선택해주세요.");
         return;
       }
+
+      // UX Fix: "판단 보류" selected -> Immediately submit or skip to end!
+      if (watchResult === "판단 보류") {
+        onSubmit({
+          result: "판단 보류",
+          confidence: 3,
+          evidence: ["판단 보류"],
+          memo: "정보 불확실로 인한 판단 보류"
+        });
+        return;
+      }
+
       if (watchResult === "정확함") setStep(4);
       else setStep(2);
     } else if (step === 2) {
@@ -219,7 +247,7 @@ export default function AuditForm({
       setStep(4);
     } else if (step === 4) {
       const valid = await trigger("evidence");
-      if (!valid || watchEvidence.length === 0) {
+      if (!valid || !watchEvidence || watchEvidence.length === 0) {
         setStepError("❌ 최소 1개 이상의 검증 근거를 선택하셔야 다음 단계로 진행할 수 있습니다.");
         return;
       }
@@ -236,6 +264,14 @@ export default function AuditForm({
     }
     else if (step === 3) setStep(2);
     else if (step === 2) setStep(1);
+  };
+
+  // Prevent accidental Enter key form submissions in inputs & textareas
+  const handleKeyDownForm = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      // Never allow Enter key inside form to submit automatically!
+      e.preventDefault();
+    }
   };
 
   if (success) {
@@ -274,8 +310,40 @@ export default function AuditForm({
   }
 
   return (
-    <div className="flex flex-col h-full text-slate-100">
+    <div className="flex flex-col h-full text-slate-100 relative">
       
+      {/* Session Start Nickname Modal Card Overlay */}
+      {showNicknameModal && (
+        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md rounded-2xl p-6 flex flex-col justify-center items-center text-center space-y-4 animate-in fade-in zoom-in-95 border border-slate-800">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+            <Award className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-extrabold text-white">시민 검증 참여 닉네임 설정</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-xs leading-relaxed">
+              검증 활동 내역이 <span className="text-blue-300 font-bold">명예의 전당 (Leaderboard)</span>에 등재됩니다! 사용하실 닉네임을 설정해 주세요.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveNicknameModal} className="w-full space-y-3 pt-2">
+            <Input
+              type="text"
+              value={tempNicknameInput}
+              onChange={(e) => setTempNicknameInput(e.target.value)}
+              placeholder="예: 대피소마스터, 안심시민"
+              className="bg-slate-900 border-slate-700 text-center font-bold text-sm text-blue-300 py-5 focus:border-blue-500"
+              autoFocus
+            />
+            <Button
+              type="submit"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-xs py-5 rounded-xl shadow-lg shadow-blue-500/20"
+            >
+              닉네임 저장 & 검증 시작 🚀
+            </Button>
+          </form>
+        </div>
+      )}
+
       {/* Contributor Nickname Bar */}
       <div className="mb-4 bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between">
         <div className="flex items-center space-x-2 min-w-0">
@@ -289,7 +357,12 @@ export default function AuditForm({
             className="bg-transparent text-xs font-bold text-blue-300 border-b border-slate-700 focus:border-blue-400 focus:outline-none px-1 py-0.5 truncate w-28 sm:w-36"
           />
         </div>
-        <span className="text-[10px] text-slate-500 font-mono">Session Active</span>
+        <button
+          onClick={() => setShowNicknameModal(true)}
+          className="text-[10px] text-blue-400 hover:underline font-mono"
+        >
+          [변경]
+        </button>
       </div>
 
       <div className="mb-4">
@@ -302,7 +375,7 @@ export default function AuditForm({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
+      <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDownForm} className="flex flex-col flex-1">
         <div className="flex-1 overflow-y-auto pr-1 pb-4 space-y-4">
           
           {/* STEP 1: 시설 판정 */}
@@ -327,6 +400,11 @@ export default function AuditForm({
                   </label>
                 ))}
               </div>
+              {watchResult === "판단 보류" && (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl text-blue-300 text-xs">
+                  💡 '판단 보류'를 선택하셨습니다. [다음] 클릭 시 즉시 기록이 제출되고 다음 대피소 검증으로 바로 연결됩니다.
+                </div>
+              )}
               {stepError && <p className="text-red-400 text-xs font-semibold mt-2">{stepError}</p>}
             </div>
           )}
@@ -367,23 +445,30 @@ export default function AuditForm({
                   <Search className="w-3.5 h-3.5 mr-1 text-indigo-400" />
                   카카오지도 장소 검색 (시설 존재 여부 확인 & 좌표 추출)
                 </div>
-                <form onSubmit={handleKakaoSearch} className="flex gap-2">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     value={searchKeyword}
                     onChange={(e) => setSearchKeyword(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleKakaoSearch();
+                      }
+                    }}
                     placeholder="예: 만석동 경로당"
                     className="flex-1 bg-slate-950 border border-slate-800 text-xs text-white px-3 py-2 rounded-xl focus:border-indigo-500 focus:outline-none"
                   />
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={() => handleKakaoSearch()}
                     disabled={isSearching}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-md shrink-0 flex items-center"
                   >
                     {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
                     검색
                   </button>
-                </form>
+                </div>
 
                 {searchExecuted && (
                   <div className="max-h-36 overflow-y-auto space-y-1.5 pt-1 text-xs">
@@ -518,11 +603,16 @@ export default function AuditForm({
           {step === 5 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <Label className="text-lg font-bold text-slate-100">5) 추가 메모 & 제출</Label>
-              <p className="text-xs text-slate-400 mb-4">제안할 추가 상세 정보나 의견을 자유롭게 적어주세요.</p>
+              <p className="text-xs text-slate-400 mb-4">제안할 추가 상세 정보나 의견을 자유롭게 적어주세요. (Enter 키로 줄바꿈 가능)</p>
               <Textarea
                 {...register("memo")}
                 placeholder="예) 카카오지도 건물명에는 '마을회관'으로 되어있으나, 실제 대피소 표지판은 노인정에 붙어있음."
                 className="min-h-[140px] resize-none text-xs p-4 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                  }
+                }}
               />
             </div>
           )}
@@ -540,7 +630,7 @@ export default function AuditForm({
           
           {step < 5 ? (
             <Button type="button" onClick={nextStep} className="w-[90px] bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold">
-              다음
+              {watchResult === "판단 보류" ? "제출 & 다음" : "다음"}
             </Button>
           ) : (
             <Button 
