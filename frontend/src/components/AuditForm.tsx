@@ -11,7 +11,7 @@ import { Textarea } from "./ui/textarea";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Sparkles, Home, RotateCcw, UserCheck } from "lucide-react";
+import { Sparkles, Home, RotateCcw, UserCheck, Search, Loader2 } from "lucide-react";
 
 const formSchema = z.object({
   result: z.string().min(1, { message: "판정 결과를 선택해주세요." }),
@@ -28,13 +28,15 @@ interface AuditFormProps {
   proposedLocation?: { lat: number; lng: number } | null;
   onClearProposedLocation?: () => void;
   onNextRandomShelter?: () => void;
+  onSelectProposedLocation?: (lat: number, lng: number) => void;
 }
 
 export default function AuditForm({ 
   shelter, 
   proposedLocation, 
   onClearProposedLocation,
-  onNextRandomShelter 
+  onNextRandomShelter,
+  onSelectProposedLocation
 }: AuditFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -46,16 +48,11 @@ export default function AuditForm({
   // Nickname session state
   const [nickname, setNickname] = useState("익명의 시민");
 
-  useEffect(() => {
-    const saved = localStorage.getItem("cdap_nickname");
-    if (saved) setNickname(saved);
-  }, []);
-
-  const saveNickname = (val: string) => {
-    const trimmed = val.trim() || "익명의 시민";
-    setNickname(trimmed);
-    localStorage.setItem("cdap_nickname", trimmed);
-  };
+  // Kakao Places Search state inside Step 3
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchExecuted, setSearchExecuted] = useState(false);
 
   const {
     register,
@@ -77,6 +74,36 @@ export default function AuditForm({
       memo: "",
     },
   });
+
+  // Reset form state completely whenever shelter changes!
+  useEffect(() => {
+    reset({
+      result: "",
+      category: [],
+      evidence: [],
+      confidence: 3,
+      proposed_name: "",
+      proposed_address: "",
+      memo: "",
+    });
+    setStep(1);
+    setStepError(null);
+    setSuccess(false);
+    setSearchKeyword(shelter.facility_name);
+    setSearchResults([]);
+    setSearchExecuted(false);
+  }, [shelter.id, reset, shelter.facility_name]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("cdap_nickname");
+    if (saved) setNickname(saved);
+  }, []);
+
+  const saveNickname = (val: string) => {
+    const trimmed = val.trim() || "익명의 시민";
+    setNickname(trimmed);
+    localStorage.setItem("cdap_nickname", trimmed);
+  };
 
   const watchResult = watch("result");
   const watchCategory = watch("category") || [];
@@ -104,6 +131,38 @@ export default function AuditForm({
     reset();
     if (onClearProposedLocation) onClearProposedLocation();
     if (onNextRandomShelter) onNextRandomShelter();
+  };
+
+  const handleKakaoSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!searchKeyword.trim()) return;
+    if (typeof window === "undefined" || !window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+      alert("카카오지도 서비스 로딩 중입니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+
+    setIsSearching(true);
+    setSearchExecuted(true);
+
+    const ps = new window.kakao.maps.services.Places();
+    ps.keywordSearch(searchKeyword.trim(), (data, status) => {
+      setIsSearching(false);
+      if (status === window.kakao.maps.services.Status.OK) {
+        setSearchResults(data);
+      } else {
+        setSearchResults([]);
+      }
+    });
+  };
+
+  const handleSelectSearchResult = (place: any) => {
+    const lat = parseFloat(place.y);
+    const lng = parseFloat(place.x);
+    setValue("proposed_name", place.place_name);
+    setValue("proposed_address", place.road_address_name || place.address_name);
+    if (onSelectProposedLocation) {
+      onSelectProposedLocation(lat, lng);
+    }
   };
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
@@ -294,12 +353,67 @@ export default function AuditForm({
             </div>
           )}
 
-          {/* STEP 3: 맞춤형 교정 정보 입력 */}
+          {/* STEP 3: 맞춤형 교정 정보 입력 & 카카오 지도 장소 검색 */}
           {step === 3 && (
             <div className="space-y-5 animate-in fade-in slide-in-from-right-4">
               <div>
                 <Label className="text-lg font-bold text-slate-100">3) 올바른 정보 교정</Label>
                 <p className="text-xs text-slate-400 mb-4">선택하신 오류 유형에 대해 올바른 값을 교정/제안해 주세요.</p>
+              </div>
+
+              {/* Kakao Live Places Search Component inside Step 3 */}
+              <div className="border border-indigo-500/30 bg-indigo-500/10 p-3.5 rounded-xl space-y-2">
+                <div className="font-bold text-xs text-indigo-300 flex items-center">
+                  <Search className="w-3.5 h-3.5 mr-1 text-indigo-400" />
+                  카카오지도 장소 검색 (시설 존재 여부 확인 & 좌표 추출)
+                </div>
+                <form onSubmit={handleKakaoSearch} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={searchKeyword}
+                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    placeholder="예: 만석동 경로당"
+                    className="flex-1 bg-slate-950 border border-slate-800 text-xs text-white px-3 py-2 rounded-xl focus:border-indigo-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSearching}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-md shrink-0 flex items-center"
+                  >
+                    {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null}
+                    검색
+                  </button>
+                </form>
+
+                {searchExecuted && (
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 pt-1 text-xs">
+                    {searchResults.length > 0 ? (
+                      searchResults.slice(0, 3).map((place) => (
+                        <div
+                          key={place.id}
+                          onClick={() => handleSelectSearchResult(place)}
+                          className="p-2 bg-slate-950/90 hover:bg-slate-800/90 border border-slate-800 rounded-xl cursor-pointer transition-all flex items-center justify-between group"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="font-bold text-indigo-300 truncate group-hover:text-indigo-200">
+                              {place.place_name}
+                            </div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {place.road_address_name || place.address_name}
+                            </div>
+                          </div>
+                          <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-md shrink-0 font-bold">
+                            선택 & 교정 적용
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2.5 bg-red-950/40 border border-red-900/50 rounded-xl text-red-400 text-[11px] font-semibold text-center">
+                        ❌ 카카오지도 장소 검색 결과 0건 — 시설 미등록 또는 폐쇄/이전 가능성이 높습니다.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* 좌표 관련 오류 안내 & 좌표 선택 상태 */}
@@ -354,16 +468,6 @@ export default function AuditForm({
                     placeholder="예) 충청남도 천안시 동남구 풍세면 통미2길 18" 
                     className="text-xs p-3 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
                   />
-                </div>
-              )}
-
-              {!watchCategory.includes("좌표 오류") && 
-               !watchCategory.includes("다른 건물에 표시") && 
-               !watchCategory.includes("주소-좌표 불일치") && 
-               !watchCategory.includes("시설명 불일치") && 
-               !watchCategory.includes("주소 오류") && (
-                <div className="text-xs text-slate-400 border border-slate-800 p-3 rounded-xl bg-slate-950">
-                  선택하신 오류에 대해 지도를 클릭하시거나 다음 단계에서 메모로 적어주시면 감사하겠습니다.
                 </div>
               )}
             </div>
