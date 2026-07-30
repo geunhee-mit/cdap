@@ -1,16 +1,17 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchShelters } from "@/lib/api";
 import AuditForm from "@/components/AuditForm";
 import { useState, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Info, MapPin, Layers } from "lucide-react";
+import { Loader2, ArrowLeft, Info, MapPin, Layers, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { Map, MapMarker, Roadview, useKakaoLoader } from "react-kakao-maps-sdk";
 
 function AuditPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const shelterId = searchParams.get("id");
   const [proposedLocation, setProposedLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -35,6 +36,15 @@ function AuditPageContent() {
 
   const shelter = shelters?.find((s) => s.id.toString() === shelterId);
 
+  const handleNextRandomShelter = () => {
+    if (!shelters || shelters.length === 0) return;
+    const remaining = shelters.filter(s => s.id.toString() !== shelterId);
+    const pool = remaining.length > 0 ? remaining : shelters;
+    const random = pool[Math.floor(Math.random() * pool.length)];
+    setProposedLocation(null);
+    router.push(`/audit?id=${random.id}`);
+  };
+
   if (shelterId && !shelter) {
     return (
       <div className="min-h-screen bg-slate-950 p-6 flex flex-col items-center justify-center text-center">
@@ -49,10 +59,19 @@ function AuditPageContent() {
       <div className="container mx-auto max-w-7xl space-y-4 sm:space-y-6">
         
         {/* Header Back Button */}
-        <Link href="/" className="inline-flex items-center text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-colors group">
-          <ArrowLeft className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" />
-          Back to Dashboard (대시보드로 돌아가기)
-        </Link>
+        <div className="flex justify-between items-center">
+          <Link href="/" className="inline-flex items-center text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-colors group">
+            <ArrowLeft className="w-4 h-4 mr-1.5 transition-transform group-hover:-translate-x-1" />
+            Back to Dashboard (대시보드로 돌아가기)
+          </Link>
+
+          <button
+            onClick={handleNextRandomShelter}
+            className="text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-300 hover:text-blue-200 px-3 py-1.5 rounded-xl font-bold transition-all shadow-sm flex items-center"
+          >
+            다른 대피소 뽑기 🎲
+          </button>
+        </div>
 
         {/* Flexible Mobile / Desktop Grid */}
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:h-[calc(100vh-140px)]">
@@ -119,9 +138,22 @@ function AuditPageContent() {
                 <div className="flex items-center justify-center h-full text-slate-400 text-xs">지도 로딩 중...</div>
               ) : shelter && shelter.lat && shelter.lng ? (
                 <>
-                  <div className="absolute top-2 left-2 right-2 sm:right-auto z-10 bg-slate-950/90 backdrop-blur-md text-white border border-slate-700/80 px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-lg flex items-center">
-                    <MapPin className="w-3.5 h-3.5 mr-1.5 text-yellow-400 shrink-0" />
-                    <span className="truncate">지도를 터치하여 실제 건물 위치 핀을 지정해 보세요.</span>
+                  <div className="absolute top-2 left-2 right-2 sm:right-auto z-10 bg-slate-950/90 backdrop-blur-md text-white border border-slate-700/80 px-3 py-1.5 rounded-xl text-[11px] font-semibold shadow-lg flex items-center justify-between gap-2">
+                    <div className="flex items-center min-w-0">
+                      <MapPin className="w-3.5 h-3.5 mr-1.5 text-yellow-400 shrink-0" />
+                      <span className="truncate">
+                        {proposedLocation ? `선택 좌표: ${proposedLocation.lat.toFixed(4)}, ${proposedLocation.lng.toFixed(4)}` : "지도를 터치하여 올바른 핀을 지정해 보세요."}
+                      </span>
+                    </div>
+                    {proposedLocation && (
+                      <button
+                        onClick={() => setProposedLocation(null)}
+                        className="bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 px-2 py-0.5 rounded-md text-[10px] shrink-0 flex items-center"
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        취소 ✕
+                      </button>
+                    )}
                   </div>
                   <Map
                     center={{ lat: shelter.lat, lng: shelter.lng }}
@@ -183,7 +215,12 @@ function AuditPageContent() {
               </CardHeader>
               <CardContent className="p-4 sm:p-6 lg:flex-1 lg:overflow-y-auto">
                 {shelter ? (
-                  <AuditForm shelter={shelter} proposedLocation={proposedLocation} />
+                  <AuditForm 
+                    shelter={shelter} 
+                    proposedLocation={proposedLocation} 
+                    onClearProposedLocation={() => setProposedLocation(null)}
+                    onNextRandomShelter={handleNextRandomShelter}
+                  />
                 ) : (
                   <div className="text-slate-500 text-center py-8 text-xs">대피소를 선택하면 검증 폼이 활성화됩니다.</div>
                 )}

@@ -62,23 +62,34 @@ def get_stats(db: Session = Depends(get_db)):
         audited = db.query(func.count(models.Audit.id)).scalar() or 0
     except Exception:
         audited = 0
+    try:
+        contributors = db.query(func.count(func.distinct(models.Audit.user_id))).scalar() or 0
+    except Exception:
+        contributors = 0
     return {
         "total_shelters": total,
         "audited_shelters": audited,
-        "pending_review": 0
+        "total_contributors": contributors
     }
 
 @app.get("/api/recent-audits")
-def get_recent_audits(limit: int = 5, db: Session = Depends(get_db)):
+def get_recent_audits(limit: int = 10, db: Session = Depends(get_db)):
     try:
         audits = db.query(models.Audit).order_by(models.Audit.created_at.desc()).limit(limit).all()
         res = []
         for a in audits:
             shelter_name = a.shelter.facility_name if a.shelter else "대피소"
+            # Get user total audit count
+            user_count = 0
+            if a.user_id:
+                user_count = db.query(func.count(models.Audit.id)).filter(models.Audit.user_id == a.user_id).scalar() or 1
+
             res.append({
                 "id": a.id,
                 "shelter_id": a.shelter_id,
                 "facility_name": shelter_name,
+                "user_id": a.user_id or "익명 시민",
+                "user_audit_count": user_count,
                 "result": a.result,
                 "confidence": a.confidence,
                 "memo": a.memo,

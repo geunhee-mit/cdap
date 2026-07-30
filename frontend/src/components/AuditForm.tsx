@@ -8,9 +8,10 @@ import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { Sparkles, Home, RotateCcw, UserCheck } from "lucide-react";
 
 const formSchema = z.object({
   result: z.string().min(1, { message: "판정 결과를 선택해주세요." }),
@@ -25,15 +26,36 @@ const formSchema = z.object({
 interface AuditFormProps {
   shelter: Shelter;
   proposedLocation?: { lat: number; lng: number } | null;
+  onClearProposedLocation?: () => void;
+  onNextRandomShelter?: () => void;
 }
 
-export default function AuditForm({ shelter, proposedLocation }: AuditFormProps) {
+export default function AuditForm({ 
+  shelter, 
+  proposedLocation, 
+  onClearProposedLocation,
+  onNextRandomShelter 
+}: AuditFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [step, setStep] = useState(1); // 1 to 5
   const [stepError, setStepError] = useState<string | null>(null);
+  
+  // Nickname session state
+  const [nickname, setNickname] = useState("익명의 시민");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("cdap_nickname");
+    if (saved) setNickname(saved);
+  }, []);
+
+  const saveNickname = (val: string) => {
+    const trimmed = val.trim() || "익명의 시민";
+    setNickname(trimmed);
+    localStorage.setItem("cdap_nickname", trimmed);
+  };
 
   const {
     register,
@@ -41,6 +63,7 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
     setValue,
     watch,
     trigger,
+    reset,
     formState: { errors },
   } = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -66,15 +89,22 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
       setSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["shelters"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
-      setTimeout(() => {
-        router.push("/");
-      }, 2000);
+      queryClient.invalidateQueries({ queryKey: ["recentAudits"] });
     },
     onError: (err: any) => {
       alert("제출 중 오류가 발생했습니다: " + (err.message || "다시 시도해 주세요."));
     },
     onSettled: () => setIsSubmitting(false),
   });
+
+  const handleNextShelterClick = () => {
+    setSuccess(false);
+    setStep(1);
+    setStepError(null);
+    reset();
+    if (onClearProposedLocation) onClearProposedLocation();
+    if (onNextRandomShelter) onNextRandomShelter();
+  };
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
@@ -87,7 +117,7 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
 
     mutation.mutate({
       shelter_id: shelter.id,
-      user_id: "user123", 
+      user_id: nickname, 
       result: values.result,
       confidence: values.confidence,
       memo: values.memo,
@@ -118,7 +148,7 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
         setStepError("판정 결과를 선택해주세요.");
         return;
       }
-      if (watchResult === "정확함") setStep(4); // Skip error selection & correction
+      if (watchResult === "정확함") setStep(4);
       else setStep(2);
     } else if (step === 2) {
       if (watchCategory.length === 0) {
@@ -151,17 +181,58 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
 
   if (success) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center justify-center mb-4 text-2xl font-bold">✓</div>
-        <h3 className="text-xl font-bold text-slate-100 mb-2">검증 기록 제출 완료!</h3>
-        <p className="text-slate-400 font-medium text-sm">시민 참여 데이터 개선에 감사드립니다.</p>
-        <p className="text-xs text-slate-500 mt-3">대시보드로 이동합니다...</p>
+      <div className="flex flex-col items-center justify-center py-8 text-center space-y-4 animate-in fade-in zoom-in-95">
+        <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg shadow-emerald-500/20">
+          ✓
+        </div>
+        <div>
+          <h3 className="text-xl font-extrabold text-slate-100 mb-1">검증 기록 제출 완료! 🎉</h3>
+          <p className="text-slate-400 font-medium text-xs">
+            <span className="text-blue-400 font-bold">{nickname}</span> 님의 소중한 기여가 반영되었습니다.
+          </p>
+        </div>
+
+        <div className="flex flex-col w-full gap-2.5 pt-4">
+          <Button 
+            onClick={handleNextShelterClick} 
+            className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-extrabold text-xs py-5 rounded-xl shadow-lg shadow-blue-500/25 flex items-center justify-center"
+          >
+            <Sparkles className="w-4 h-4 mr-2 text-yellow-300 animate-pulse" />
+            다음 랜덤 대피소 바로 검증하기 🎲
+          </Button>
+
+          <Button 
+            variant="outline" 
+            onClick={() => router.push("/")}
+            className="w-full border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs py-4 rounded-xl flex items-center justify-center"
+          >
+            <Home className="w-4 h-4 mr-1.5" />
+            대시보드로 돌아가기
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col h-full text-slate-100">
+      
+      {/* Contributor Nickname Bar */}
+      <div className="mb-4 bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between">
+        <div className="flex items-center space-x-2 min-w-0">
+          <UserCheck className="w-4 h-4 text-blue-400 shrink-0" />
+          <span className="text-[11px] text-slate-400 font-medium shrink-0">기여자 닉네임:</span>
+          <input
+            type="text"
+            value={nickname}
+            onChange={(e) => saveNickname(e.target.value)}
+            placeholder="닉네임 입력"
+            className="bg-transparent text-xs font-bold text-blue-300 border-b border-slate-700 focus:border-blue-400 focus:outline-none px-1 py-0.5 truncate w-28 sm:w-36"
+          />
+        </div>
+        <span className="text-[10px] text-slate-500 font-mono">Session Active</span>
+      </div>
+
       <div className="mb-4">
         <div className="flex justify-between text-xs text-slate-400 font-medium mb-2">
           <span>Step {step} of 5</span>
@@ -173,7 +244,7 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1">
-        <div className="flex-1 overflow-y-auto pr-2 pb-4">
+        <div className="flex-1 overflow-y-auto pr-1 pb-4 space-y-4">
           
           {/* STEP 1: 시설 판정 */}
           {step === 1 && (
@@ -233,16 +304,26 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
 
               {/* 좌표 관련 오류 안내 & 좌표 선택 상태 */}
               {(watchCategory.includes("좌표 오류") || watchCategory.includes("다른 건물에 표시") || watchCategory.includes("주소-좌표 불일치")) && (
-                <div className="border border-blue-500/30 bg-blue-500/10 p-4 rounded-xl space-y-2">
-                  <div className="font-bold text-xs text-blue-300 flex items-center">
-                    📍 위치 좌표 교정 (지도 클릭)
+                <div className="border border-blue-500/30 bg-blue-500/10 p-4 rounded-xl space-y-2.5">
+                  <div className="font-bold text-xs text-blue-300 flex items-center justify-between">
+                    <span>📍 위치 좌표 교정 (지도 클릭)</span>
+                    {proposedLocation && onClearProposedLocation && (
+                      <button
+                        type="button"
+                        onClick={onClearProposedLocation}
+                        className="text-[10px] bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 px-2 py-0.5 rounded transition-colors flex items-center"
+                      >
+                        <RotateCcw className="w-3 h-3 mr-1" />
+                        위치 선택 취소 ✕
+                      </button>
+                    )}
                   </div>
                   <p className="text-xs text-slate-300">
                     왼쪽 지도 위에서 실제 건물/출입구 위치를 클릭해 보세요!
                   </p>
                   {proposedLocation ? (
-                    <div className="bg-slate-950 border border-emerald-500/40 text-emerald-400 p-2.5 rounded-lg text-xs font-mono font-bold shadow-inner">
-                      ✅ 제안된 위경도: {proposedLocation.lat.toFixed(6)}, {proposedLocation.lng.toFixed(6)}
+                    <div className="bg-slate-950 border border-emerald-500/40 text-emerald-400 p-2.5 rounded-lg text-xs font-mono font-bold shadow-inner flex justify-between items-center">
+                      <span>✅ 제안된 위경도: {proposedLocation.lat.toFixed(6)}, {proposedLocation.lng.toFixed(6)}</span>
                     </div>
                   ) : (
                     <div className="bg-slate-950/80 border border-slate-800 text-slate-400 p-2.5 rounded-lg text-xs">
@@ -276,7 +357,6 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
                 </div>
               )}
 
-              {/* 아무것도 안 들어맞더라도 기본 입력 가이드 */}
               {!watchCategory.includes("좌표 오류") && 
                !watchCategory.includes("다른 건물에 표시") && 
                !watchCategory.includes("주소-좌표 불일치") && 
@@ -361,7 +441,7 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
           ) : (
             <Button 
               type="submit" 
-              className="w-[130px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25"
+              className="w-[130px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25"
               disabled={isSubmitting}
             >
               {isSubmitting ? "제출 중..." : "제출 완료"}
