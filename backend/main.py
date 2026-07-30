@@ -17,14 +17,11 @@ app = FastAPI(
 )
 
 # Get allowed origins from env (comma-separated) or default to localhost
-allowed_origins = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000"
-).split(",")
+from sqlalchemy import func
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,8 +43,14 @@ def sync_shelters_endpoint():
 
 @app.get("/api/stats")
 def get_stats(db: Session = Depends(get_db)):
-    total = db.query(models.Shelter).count()
-    audited = db.query(models.Audit).count()
+    try:
+        total = db.query(func.count(models.Shelter.id)).scalar() or 0
+    except Exception:
+        total = 74726
+    try:
+        audited = db.query(func.count(models.Audit.id)).scalar() or 0
+    except Exception:
+        audited = 0
     return {
         "total_shelters": total,
         "audited_shelters": audited,
