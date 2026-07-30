@@ -45,7 +45,7 @@ def sync_shelters_endpoint():
     return {"message": "Shelter data synced successfully"}
 
 @app.get("/api/shelters", response_model=List[schemas.ShelterResponse])
-def get_shelters(skip: int = 0, limit: int = 1000, db: Session = Depends(get_db)):
+def get_shelters(skip: int = 0, limit: int = 100000, db: Session = Depends(get_db)):
     shelters = db.query(models.Shelter).offset(skip).limit(limit).all()
     return shelters
 
