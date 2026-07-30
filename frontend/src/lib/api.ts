@@ -24,6 +24,12 @@ export interface AuditSubmitData {
   evidences: { type: string; url?: string; photo?: string }[];
 }
 
+export async function fetchStats() {
+  const res = await fetch(`${API_BASE_URL}/api/stats`);
+  if (!res.ok) throw new Error("Failed to fetch stats");
+  return res.json();
+}
+
 export async function fetchShelters(): Promise<Shelter[]> {
   const res = await fetch(`${API_BASE_URL}/api/shelters`);
   if (!res.ok) throw new Error("Failed to fetch shelters");

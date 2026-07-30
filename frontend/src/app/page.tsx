@@ -17,7 +17,13 @@ const DashboardMap = dynamic(() => import("@/components/DashboardMap"), {
 
 export default function Home() {
   const router = useRouter();
-  const { data: shelters, isLoading } = useQuery({
+
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ["stats"],
+    queryFn: fetchStats,
+  });
+
+  const { data: shelters } = useQuery({
     queryKey: ["shelters"],
     queryFn: fetchShelters,
   });
@@ -51,7 +57,9 @@ export default function Home() {
             <MapPin className="w-4 h-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? "..." : shelters?.length || 0}</div>
+            <div className="text-2xl font-bold">
+              {isLoadingStats ? "..." : (stats?.total_shelters ? stats.total_shelters.toLocaleString() : 0)}
+            </div>
           </CardContent>
         </Card>
         
