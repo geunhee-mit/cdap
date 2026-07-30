@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 const formSchema = z.object({
   result: z.string().min(1, { message: "판정 결과를 선택해주세요." }),
   category: z.array(z.string()).optional(),
-  evidence: z.array(z.string()).min(1, { message: "최소 1개의 근거를 선택해주세요." }),
+  evidence: z.array(z.string()).optional(),
   confidence: z.number().min(1).max(5),
   memo: z.string().optional(),
 });
@@ -43,7 +43,7 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
     defaultValues: {
       result: "",
       category: [],
-      evidence: [],
+      evidence: ["카카오 지도"],
       confidence: 3,
       memo: "",
     },
@@ -59,9 +59,13 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
     onSuccess: () => {
       setSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["shelters"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
       setTimeout(() => {
         router.push("/");
       }, 2000);
+    },
+    onError: (err: any) => {
+      alert("제출 중 오류가 발생했습니다: " + (err.message || "다시 시도해 주세요."));
     },
     onSettled: () => setIsSubmitting(false),
   });
@@ -73,7 +77,8 @@ export default function AuditForm({ shelter, proposedLocation }: AuditFormProps)
       subtype: cat
     })) || [];
 
-    const evidenceList = values.evidence.map(ev => ({ type: ev }));
+    const finalEvidences = (values.evidence && values.evidence.length > 0) ? values.evidence : ["카카오 지도"];
+    const evidenceList = finalEvidences.map(ev => ({ type: ev }));
 
     mutation.mutate({
       shelter_id: shelter.id,
