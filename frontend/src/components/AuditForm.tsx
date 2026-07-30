@@ -266,12 +266,9 @@ export default function AuditForm({
     else if (step === 2) setStep(1);
   };
 
-  // Prevent accidental Enter key form submissions in inputs & textareas
-  const handleKeyDownForm = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      // Never allow Enter key inside form to submit automatically!
-      e.preventDefault();
-    }
+  // Submit handler called explicitly from button click only
+  const handleFormSubmit = () => {
+    handleSubmit(onSubmit)();
   };
 
   if (success) {
@@ -375,7 +372,7 @@ export default function AuditForm({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} onKeyDown={handleKeyDownForm} className="flex flex-col flex-1">
+      <form onSubmit={(e) => e.preventDefault()} className="flex flex-col flex-1">
         <div className="flex-1 overflow-y-auto pr-1 pb-4 space-y-4">
           
           {/* STEP 1: 시설 판정 */}
@@ -608,11 +605,6 @@ export default function AuditForm({
                 {...register("memo")}
                 placeholder="예) 카카오지도 건물명에는 '마을회관'으로 되어있으나, 실제 대피소 표지판은 노인정에 붙어있음."
                 className="min-h-[140px] resize-none text-xs p-4 bg-slate-950 border-slate-800 text-white placeholder:text-slate-600 focus:border-blue-500"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.stopPropagation();
-                  }
-                }}
               />
             </div>
           )}
@@ -634,7 +626,8 @@ export default function AuditForm({
             </Button>
           ) : (
             <Button 
-              type="submit" 
+              type="button"
+              onClick={handleFormSubmit}
               className="w-[130px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25"
               disabled={isSubmitting}
             >
