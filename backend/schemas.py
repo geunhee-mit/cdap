@@ -17,6 +17,8 @@ class AuditCreate(BaseModel):
     result: str
     confidence: int
     memo: Optional[str] = None
+    proposed_lat: Optional[float] = None
+    proposed_lng: Optional[float] = None
     errors: List[ErrorBase] = []
     evidences: List[EvidenceBase] = []
 
@@ -27,6 +29,8 @@ class AuditResponse(BaseModel):
     result: str
     confidence: int
     memo: Optional[str] = None
+    proposed_lat: Optional[float] = None
+    proposed_lng: Optional[float] = None
     created_at: datetime
 
     class Config:

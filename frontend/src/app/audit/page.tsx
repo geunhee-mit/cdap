@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchShelters } from "@/lib/api";
 import AuditForm from "@/components/AuditForm";
-import { Suspense } from "react";
+import { useState, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import { Map, MapMarker, Roadview, useKakaoLoader } from "react-kakao-maps-sdk";
 function AuditPageContent() {
   const searchParams = useSearchParams();
   const shelterId = searchParams.get("id");
+  const [proposedLocation, setProposedLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [loadingMap] = useKakaoLoader({
     appkey: "1f24178e01d7c175e45cc35e52c604b0",
@@ -90,17 +91,40 @@ function AuditPageContent() {
 
         {/* Center Panel: Map / Roadview */}
         <div className="lg:col-span-5 h-full flex flex-col gap-4">
-          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden flex-1 min-h-[300px]">
+          <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden flex-1 min-h-[300px] relative">
             {loadingMap ? (
               <div className="flex items-center justify-center h-full text-neutral-400">지도 로딩 중...</div>
             ) : shelter && shelter.lat && shelter.lng ? (
-              <Map
-                center={{ lat: shelter.lat, lng: shelter.lng }}
-                style={{ width: "100%", height: "100%" }}
-                level={3}
-              >
-                <MapMarker position={{ lat: shelter.lat, lng: shelter.lng }} />
-              </Map>
+              <>
+                <div className="absolute top-2 left-2 z-10 bg-black/75 text-white px-3 py-1.5 rounded-lg text-xs shadow-md">
+                  💡 지도를 클릭하여 올바른 실제 건물 위치 핀을 지정해보세요.
+                </div>
+                <Map
+                  center={{ lat: shelter.lat, lng: shelter.lng }}
+                  style={{ width: "100%", height: "100%" }}
+                  level={3}
+                  onClick={(_map, mouseEvent) => {
+                    const lat = mouseEvent.latLng.getLat();
+                    const lng = mouseEvent.latLng.getLng();
+                    setProposedLocation({ lat, lng });
+                  }}
+                >
+                  {/* Original API pin */}
+                  <MapMarker position={{ lat: shelter.lat, lng: shelter.lng }} title="기존 정부 API 좌표" />
+                  
+                  {/* Proposed corrected pin */}
+                  {proposedLocation && (
+                    <MapMarker 
+                      position={proposedLocation} 
+                      title="시민 제안 올바른 위치"
+                      image={{
+                        src: "https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png",
+                        size: { width: 24, height: 35 }
+                      }}
+                    />
+                  )}
+                </Map>
+              </>
             ) : (
               <div className="flex items-center justify-center h-full text-neutral-400">Map View</div>
             )}
@@ -110,7 +134,11 @@ function AuditPageContent() {
                <div className="flex items-center justify-center h-full text-neutral-400">로드뷰 로딩 중...</div>
              ) : shelter && shelter.lat && shelter.lng ? (
               <Roadview
-                position={{ lat: shelter.lat, lng: shelter.lng, radius: 50 }}
+                position={{
+                  lat: proposedLocation ? proposedLocation.lat : shelter.lat,
+                  lng: proposedLocation ? proposedLocation.lng : shelter.lng,
+                  radius: 50
+                }}
                 style={{ width: "100%", height: "100%" }}
               />
             ) : (
@@ -129,7 +157,7 @@ function AuditPageContent() {
             </CardHeader>
             <CardContent className="pt-6">
               {shelter ? (
-                <AuditForm shelter={shelter} />
+                <AuditForm shelter={shelter} proposedLocation={proposedLocation} />
               ) : (
                 <div className="text-neutral-500 text-center py-8">Select a shelter to enable the form.</div>
               )}

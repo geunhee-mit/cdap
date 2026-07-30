@@ -19,7 +19,12 @@ const formSchema = z.object({
   memo: z.string().optional(),
 });
 
-export default function AuditForm({ shelter }: { shelter: Shelter }) {
+interface AuditFormProps {
+  shelter: Shelter;
+  proposedLocation?: { lat: number; lng: number } | null;
+}
+
+export default function AuditForm({ shelter, proposedLocation }: AuditFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,6 +81,8 @@ export default function AuditForm({ shelter }: { shelter: Shelter }) {
       result: values.result,
       confidence: values.confidence,
       memo: values.memo,
+      proposed_lat: proposedLocation?.lat,
+      proposed_lng: proposedLocation?.lng,
       errors: errorsList,
       evidences: evidenceList,
     });
@@ -161,6 +168,11 @@ export default function AuditForm({ shelter }: { shelter: Shelter }) {
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
               <Label className="text-lg font-bold">2) 오류 유형 선택</Label>
               <p className="text-sm text-neutral-500 mb-4">어떤 종류의 오류가 있나요? (다중 선택 가능)</p>
+              {proposedLocation && (
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-lg text-xs font-mono mb-2">
+                  📍 <strong>지도 선택 좌표:</strong> {proposedLocation.lat.toFixed(6)}, {proposedLocation.lng.toFixed(6)}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {["좌표 오류", "주소 오류", "주소-좌표 불일치", "다른 건물에 표시", "시설명 불일치", "폐쇄", "이전", "중복"].map((cat) => (
                   <label key={cat} className="flex items-center space-x-3 cursor-pointer p-3 border rounded-lg hover:bg-neutral-50/10">

@@ -31,6 +31,8 @@ class Audit(Base):
     result = Column(String) # 정확함, 잘못됨 등
     confidence = Column(Integer) # 1-5
     memo = Column(Text, nullable=True)
+    proposed_lat = Column(Float, nullable=True)
+    proposed_lng = Column(Float, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     shelter = relationship("Shelter", back_populates="audits")
