@@ -142,7 +142,7 @@ export default function Home() {
                 Live Feed
               </span>
             </div>
-            <Card className="bg-slate-900/80 border-slate-800/80 rounded-2xl shadow-xl backdrop-blur-md h-[420px] overflow-hidden flex flex-col p-4">
+            <Card className="bg-slate-900/80 border-slate-800/80 rounded-2xl shadow-xl backdrop-blur-md h-[480px] overflow-hidden flex flex-col p-4">
               {recentAudits && recentAudits.length > 0 ? (
                 <div className="space-y-3 overflow-y-auto pr-1 flex-1">
                   {recentAudits.map((item: any) => (

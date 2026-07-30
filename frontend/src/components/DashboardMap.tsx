@@ -56,18 +56,18 @@ export default function DashboardMap({ shelters }: { shelters: Shelter[] }) {
   const center = { lat: 36.3, lng: 127.5 };
 
   if (loading) return (
-    <div className="w-full h-full min-h-[400px] flex items-center justify-center bg-slate-900 rounded-2xl text-slate-400 border border-slate-800">
+    <div className="w-full h-[480px] flex items-center justify-center bg-slate-900 rounded-2xl text-slate-400 border border-slate-800">
       지도 로딩 중...
     </div>
   );
   if (error) return (
-    <div className="w-full h-full min-h-[400px] flex items-center justify-center bg-red-950/50 rounded-2xl text-red-400 border border-red-900/50">
+    <div className="w-full h-[480px] flex items-center justify-center bg-red-950/50 rounded-2xl text-red-400 border border-red-900/50">
       지도 로드 실패 (에러: {String(error)})
     </div>
   );
 
   return (
-    <div className="w-full h-full min-h-[420px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+    <div className="w-full h-[480px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
       <Map
         center={center}
         style={{ width: "100%", height: "100%" }}
