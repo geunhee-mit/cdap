@@ -15,6 +15,7 @@ export interface Shelter {
 export interface AuditSubmitData {
   shelter_id: number;
   user_id: string;
+  nickname?: string;
   result: string;
   confidence: number;
   memo?: string;
@@ -26,9 +27,44 @@ export interface AuditSubmitData {
   evidences: { type: string; url?: string; photo?: string }[];
 }
 
+export interface QualityReport {
+  total_audits: number;
+  overall_score: number;
+  accuracy_rate: number;
+  result_counts: Record<string, number>;
+  top_errors: { subtype: string; count: number }[];
+  recent_corrections: {
+    id: number;
+    shelter_id: number;
+    original_name: string;
+    proposed_name?: string;
+    has_proposed_coords: boolean;
+    proposed_lat?: number;
+    proposed_lng?: number;
+    memo?: string;
+    nickname: string;
+    created_at?: string;
+  }[];
+}
+
 export async function fetchStats() {
   const res = await fetch(`${API_BASE_URL}/api/stats`);
   if (!res.ok) throw new Error("Failed to fetch stats");
+  return res.json();
+}
+
+export async function fetchQualityReport(): Promise<QualityReport> {
+  const res = await fetch(`${API_BASE_URL}/api/quality-report`);
+  if (!res.ok) {
+    return {
+      total_audits: 0,
+      overall_score: 0.0,
+      accuracy_rate: 0.0,
+      result_counts: {},
+      top_errors: [],
+      recent_corrections: []
+    };
+  }
   return res.json();
 }
 

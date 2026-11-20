@@ -14,6 +14,7 @@ class ErrorBase(BaseModel):
 class AuditCreate(BaseModel):
     shelter_id: int
     user_id: str
+    nickname: Optional[str] = None
     result: str
     confidence: int
     memo: Optional[str] = None
@@ -28,6 +29,7 @@ class AuditResponse(BaseModel):
     id: int
     shelter_id: int
     user_id: str
+    nickname: Optional[str] = None
     result: str
     confidence: int
     memo: Optional[str] = None

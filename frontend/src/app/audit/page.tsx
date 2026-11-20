@@ -6,7 +6,7 @@ import { fetchShelters } from "@/lib/api";
 import AuditForm from "@/components/AuditForm";
 import { useState, Suspense, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Info, MapPin, Layers, RotateCcw } from "lucide-react";
+import { Loader2, ArrowLeft, Info, MapPin, Layers, RotateCcw, ExternalLink, Eye } from "lucide-react";
 import Link from "next/link";
 import { Map, MapMarker, Roadview, useKakaoLoader } from "react-kakao-maps-sdk";
 
@@ -187,24 +187,50 @@ function AuditPageContent() {
               )}
             </div>
 
-            {/* Kakao Roadview Box */}
-            <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden h-[260px] sm:h-[300px] lg:flex-1">
-               {loadingMap ? (
-                 <div className="flex items-center justify-center h-full text-slate-400 text-xs">로드뷰 로딩 중...</div>
-               ) : shelter && shelter.lat && shelter.lng ? (
-                <Roadview
-                  position={{
-                    lat: proposedLocation ? proposedLocation.lat : shelter.lat,
-                    lng: proposedLocation ? proposedLocation.lng : shelter.lng,
-                    radius: 50
-                  }}
-                  style={{ width: "100%", height: "100%" }}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full text-slate-400 text-xs text-center px-4">
-                  Roadview View
-                </div>
-              )}
+            {/* Kakao Roadview Box with Fallback Links */}
+            <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden h-[260px] sm:h-[300px] lg:flex-1 relative flex flex-col">
+              <div className="flex-1 relative overflow-hidden">
+                {loadingMap ? (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-xs">로드뷰 로딩 중...</div>
+                ) : shelter && shelter.lat && shelter.lng ? (
+                  <>
+                    <Roadview
+                      position={{
+                        lat: proposedLocation ? proposedLocation.lat : shelter.lat,
+                        lng: proposedLocation ? proposedLocation.lng : shelter.lng,
+                        radius: 120
+                      }}
+                      style={{ width: "100%", height: "100%" }}
+                    />
+                    <div className="absolute bottom-2 left-2 right-2 z-10 flex flex-wrap items-center justify-between gap-1.5 bg-slate-950/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-slate-800/80 text-[10px] text-slate-400 pointer-events-auto">
+                      <span className="truncate">💡 아파트 단지·산림·학교 내부는 로드뷰가 미지원될 수 있습니다.</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={`https://map.kakao.com/link/map/${encodeURIComponent(shelter.facility_name)},${shelter.lat},${shelter.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-0.5 hover:underline"
+                        >
+                          카카오맵 <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                        <span>·</span>
+                        <a
+                          href={`https://map.naver.com/v5/search/${encodeURIComponent(shelter.facility_name)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5 hover:underline"
+                        >
+                          네이버 <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-400 text-xs text-center px-4">
+                    Roadview View
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

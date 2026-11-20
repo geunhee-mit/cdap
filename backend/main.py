@@ -18,6 +18,7 @@ def run_migrations():
             conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_lng DOUBLE PRECISION;"))
             conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_name VARCHAR;"))
             conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS proposed_address VARCHAR;"))
+            conn.execute(text("ALTER TABLE audits ADD COLUMN IF NOT EXISTS nickname VARCHAR;"))
             conn.commit()
     except Exception as e:
         print(f"Migration notice: {e}")
@@ -89,6 +90,7 @@ def get_recent_audits(limit: int = 10, db: Session = Depends(get_db)):
                 "shelter_id": a.shelter_id,
                 "facility_name": shelter_name,
                 "user_id": a.user_id or "익명 시민",
+                "nickname": a.nickname or a.user_id or "익명 시민",
                 "user_audit_count": user_count,
                 "result": a.result,
                 "confidence": a.confidence,
@@ -100,6 +102,70 @@ def get_recent_audits(limit: int = 10, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"Error fetching recent audits: {e}")
         return []
+
+@app.get("/api/quality-report")
+def get_quality_report(db: Session = Depends(get_db)):
+    try:
+        total_audits = db.query(func.count(models.Audit.id)).scalar() or 0
+        if total_audits == 0:
+            return {
+                "total_audits": 0,
+                "overall_score": 0.0,
+                "accuracy_rate": 0.0,
+                "result_counts": {},
+                "top_errors": [],
+                "recent_corrections": []
+            }
+
+        avg_confidence = db.query(func.avg(models.Audit.confidence)).scalar() or 0.0
+
+        result_rows = db.query(models.Audit.result, func.count(models.Audit.id)).group_by(models.Audit.result).all()
+        result_counts = {r[0]: r[1] for r in result_rows if r[0]}
+
+        accurate_count = result_counts.get("정확함", 0) + result_counts.get("대체로 정확함", 0)
+        accuracy_rate = round((accurate_count / total_audits) * 100, 1)
+
+        error_rows = db.query(models.Error.subtype, func.count(models.Error.id)).group_by(models.Error.subtype).order_by(func.count(models.Error.id).desc()).limit(6).all()
+        top_errors = [{"subtype": row[0], "count": row[1]} for row in error_rows if row[0]]
+
+        corrections = db.query(models.Audit).filter(
+            (models.Audit.proposed_name.isnot(None) & (models.Audit.proposed_name != "")) |
+            (models.Audit.proposed_lat.isnot(None))
+        ).order_by(models.Audit.created_at.desc()).limit(10).all()
+
+        recent_corrections = []
+        for c in corrections:
+            recent_corrections.append({
+                "id": c.id,
+                "shelter_id": c.shelter_id,
+                "original_name": c.shelter.facility_name if c.shelter else "대피소",
+                "proposed_name": c.proposed_name,
+                "has_proposed_coords": bool(c.proposed_lat and c.proposed_lng),
+                "proposed_lat": c.proposed_lat,
+                "proposed_lng": c.proposed_lng,
+                "memo": c.memo,
+                "nickname": c.nickname or c.user_id or "시민 감사관",
+                "created_at": c.created_at.isoformat() if c.created_at else None
+            })
+
+        return {
+            "total_audits": total_audits,
+            "overall_score": round(float(avg_confidence), 1),
+            "accuracy_rate": accuracy_rate,
+            "result_counts": result_counts,
+            "top_errors": top_errors,
+            "recent_corrections": recent_corrections
+        }
+    except Exception as e:
+        print(f"Error in get_quality_report: {e}")
+        return {
+            "total_audits": 0,
+            "overall_score": 0.0,
+            "accuracy_rate": 0.0,
+            "result_counts": {},
+            "top_errors": [],
+            "recent_corrections": []
+        }
 
 @app.get("/api/shelters", response_model=List[schemas.ShelterResponse])
 def get_shelters(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
@@ -125,6 +191,7 @@ def create_audit(audit_in: schemas.AuditCreate, db: Session = Depends(get_db)):
         db_audit = models.Audit(
             shelter_id=audit_in.shelter_id,
             user_id=audit_in.user_id,
+            nickname=audit_in.nickname or audit_in.user_id,
             result=audit_in.result,
             confidence=audit_in.confidence,
             memo=audit_in.memo,

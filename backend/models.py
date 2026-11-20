@@ -27,7 +27,8 @@ class Audit(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     shelter_id = Column(Integer, ForeignKey("shelters.id"))
-    user_id = Column(String, index=True)  # Mock user ID for MVP
+    user_id = Column(String, index=True)  # Persistent client UUID
+    nickname = Column(String, nullable=True) # Contributor display nickname
     result = Column(String) # 정확함, 잘못됨 등
     confidence = Column(Integer) # 1-5
     memo = Column(Text, nullable=True)

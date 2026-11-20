@@ -49,6 +49,14 @@ export default function AuditForm({
   const [nickname, setNickname] = useState("익명의 시민");
   const [showNicknameModal, setShowNicknameModal] = useState(false);
   const [tempNicknameInput, setTempNicknameInput] = useState("");
+  const [myAuditCount, setMyAuditCount] = useState<number>(0);
+
+  const getInspectorBadge = (count: number) => {
+    if (count >= 25) return { tier: "Level 4", title: "국가안전 수호자", icon: "👑", badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/30" };
+    if (count >= 10) return { tier: "Level 3", title: "마스터 감사관", icon: "🏅", badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/30" };
+    if (count >= 3) return { tier: "Level 2", title: "동네 안전 지킴이", icon: "🛡️", badgeColor: "bg-blue-500/20 text-blue-300 border-blue-500/30" };
+    return { tier: "Level 1", title: "새싹 시민 조사관", icon: "🌱", badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" };
+  };
 
   // Kakao Places Search state inside Step 3
   const [searchKeyword, setSearchKeyword] = useState("");
@@ -77,7 +85,7 @@ export default function AuditForm({
     },
   });
 
-  // Check initial Nickname on session start
+  // Check initial Nickname & persistent UUID on session start
   useEffect(() => {
     const saved = localStorage.getItem("cdap_nickname");
     if (saved) {
@@ -85,6 +93,14 @@ export default function AuditForm({
       setShowNicknameModal(false);
     } else {
       setShowNicknameModal(true);
+    }
+
+    const count = parseInt(localStorage.getItem("cdap_my_audit_count") || "0", 10);
+    setMyAuditCount(count);
+
+    if (!localStorage.getItem("cdap_user_uuid")) {
+      const newUuid = "usr_" + (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 11));
+      localStorage.setItem("cdap_user_uuid", newUuid);
     }
   }, []);
 
@@ -130,6 +146,20 @@ export default function AuditForm({
     mutationFn: submitAudit,
     onSuccess: () => {
       setSuccess(true);
+      const nextCount = myAuditCount + 1;
+      setMyAuditCount(nextCount);
+      localStorage.setItem("cdap_my_audit_count", nextCount.toString());
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["recentAudits"] });
+      queryClient.invalidateQueries({ queryKey: ["qualityReport"] });
+    },
+    onError: (err) => {
+      alert(`제출 실패: ${err.message}`);
+    },
+    onSettled: () => {
+      setIsSubmitting(false);
+    }
+  });
       queryClient.invalidateQueries({ queryKey: ["shelters"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["recentAudits"] });
@@ -190,9 +220,12 @@ export default function AuditForm({
 
     const evidenceList = values.evidence ? values.evidence.map(ev => ({ type: ev })) : [{ type: "판단 보류" }];
 
+    const userUuid = (typeof window !== "undefined" && localStorage.getItem("cdap_user_uuid")) || "usr_anonymous";
+
     mutation.mutate({
       shelter_id: shelter.id,
-      user_id: nickname, 
+      user_id: userUuid,
+      nickname: nickname,
       result: values.result,
       confidence: values.confidence || 3,
       memo: values.memo,
@@ -279,8 +312,13 @@ export default function AuditForm({
         </div>
         <div>
           <h3 className="text-xl font-extrabold text-slate-100 mb-1">검증 기록 제출 완료! 🎉</h3>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold my-2 bg-blue-500/10 border-blue-500/20 text-blue-300">
+            <span>{getInspectorBadge(myAuditCount).icon}</span>
+            <span>{getInspectorBadge(myAuditCount).title}</span>
+            <span className="text-slate-400 font-mono">({myAuditCount}번째 검증 달성!)</span>
+          </div>
           <p className="text-slate-400 font-medium text-xs">
-            <span className="text-blue-400 font-bold">{nickname}</span> 님의 소중한 기여가 반영되었습니다.
+            <span className="text-blue-400 font-bold">{nickname}</span> 님의 소중한 기여가 공공데이터 품질 개선에 반영되었습니다.
           </p>
         </div>
 
@@ -341,25 +379,33 @@ export default function AuditForm({
         </div>
       )}
 
-      {/* Contributor Nickname Bar */}
-      <div className="mb-4 bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between">
+      {/* Contributor Nickname & Tier Bar */}
+      <div className="mb-4 bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between gap-2">
         <div className="flex items-center space-x-2 min-w-0">
-          <UserCheck className="w-4 h-4 text-blue-400 shrink-0" />
-          <span className="text-[11px] text-slate-400 font-medium shrink-0">기여자 닉네임:</span>
+          <div className={`px-2 py-0.5 rounded-full border text-[11px] font-bold flex items-center gap-1 shrink-0 ${getInspectorBadge(myAuditCount).badgeColor}`}>
+            <span>{getInspectorBadge(myAuditCount).icon}</span>
+            <span className="hidden sm:inline">{getInspectorBadge(myAuditCount).title}</span>
+            <span className="sm:hidden">{getInspectorBadge(myAuditCount).tier}</span>
+          </div>
           <input
             type="text"
             value={nickname}
             onChange={(e) => saveNickname(e.target.value)}
             placeholder="닉네임 입력"
-            className="bg-transparent text-xs font-bold text-blue-300 border-b border-slate-700 focus:border-blue-400 focus:outline-none px-1 py-0.5 truncate w-28 sm:w-36"
+            className="bg-transparent text-xs font-bold text-blue-300 border-b border-slate-700 focus:border-blue-400 focus:outline-none px-1 py-0.5 truncate w-24 sm:w-32"
           />
         </div>
-        <button
-          onClick={() => setShowNicknameModal(true)}
-          className="text-[10px] text-blue-400 hover:underline font-mono"
-        >
-          [변경]
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-[10px] font-mono text-slate-400 font-bold bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">
+            {myAuditCount}건 검증
+          </span>
+          <button
+            onClick={() => setShowNicknameModal(true)}
+            className="text-[10px] text-blue-400 hover:underline font-mono"
+          >
+            [변경]
+          </button>
+        </div>
       </div>
 
       <div className="mb-4">
