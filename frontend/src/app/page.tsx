@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchShelters, fetchStats, fetchRecentAudits } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, ShieldAlert, CheckCircle, Users, Sparkles, Star, ChevronRight, ExternalLink, Mail, MessageSquare, BookOpen, Flame } from "lucide-react";
+import { MapPin, ShieldAlert, CheckCircle, Users, Sparkles, Star, ChevronRight, ExternalLink, Mail, MessageSquare, BookOpen } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 
@@ -65,55 +65,14 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Action Buttons: Auditing & Simulator */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-            <a
-              href="https://geunhee-mit.github.io/goldentime-simulation/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-slate-900/90 hover:bg-slate-800 text-rose-400 hover:text-rose-300 border border-rose-500/40 hover:border-rose-500 font-bold text-sm px-5 py-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 group text-center"
-            >
-              <Flame className="w-4 h-4 text-rose-500 animate-pulse group-hover:scale-110 transition-transform" />
-              <span>7분 생존 시뮬레이터</span>
-            </a>
-
-            <Button 
-              onClick={handleStartAuditing} 
-              className="w-full sm:w-auto bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-extrabold text-base px-7 py-6 rounded-xl shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105 transition-all transform flex items-center justify-center border border-white/10"
-            >
-              <Sparkles className="w-5 h-5 mr-2 animate-pulse text-yellow-300" />
-              Start Auditing (검증 시작)
-            </Button>
-          </div>
-        </div>
-
-        {/* Interactive Simulation Banner (1in8b Style Cross-Promotion) */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-rose-950/70 via-slate-900/90 to-amber-950/50 border border-rose-500/30 p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-5 shadow-xl shadow-rose-950/20 backdrop-blur-md">
-          <div className="space-y-1.5 max-w-3xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold font-mono bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5 animate-ping"></span>
-                INTERACTIVE SURVIVAL SIMULATOR
-              </span>
-              <span className="text-xs text-amber-400/90 font-medium">실제 공공데이터 74,726개 기반</span>
-            </div>
-            <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
-              <span>골든타임 7분 · 8천만 분의 1의 생존 시뮬레이터</span>
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
-              공습경보가 울렸을 때, 당신의 거주지 인근 대피소는 실제로 열려 있을까요?
-              실제 공공데이터에 존재하는 <strong>시건장치 폐쇄, 부정확한 좌표, 진입 장벽</strong> 오류를 뚫고 7분 안에 살아남는 인터랙티브 재난 시뮬레이션을 체험해 보세요.
-            </p>
-          </div>
-          <a
-            href="https://geunhee-mit.github.io/goldentime-simulation/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="whitespace-nowrap px-6 py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-black text-sm shadow-lg shadow-rose-950/40 transition-all flex items-center gap-2 group shrink-0 w-full md:w-auto justify-center"
+          {/* Prominent High-Visibility CTA Button */}
+          <Button 
+            onClick={handleStartAuditing} 
+            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-extrabold text-base px-7 py-6 rounded-xl shadow-xl shadow-blue-500/25 hover:shadow-blue-500/40 hover:scale-105 transition-all transform flex items-center justify-center border border-white/10"
           >
-            <span>지금 생존 시뮬레이션 시작</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </a>
+            <Sparkles className="w-5 h-5 mr-2 animate-pulse text-yellow-300" />
+            Start Auditing (검증 시작)
+          </Button>
         </div>
 
         {/* Metric Cards Grid (3 Cards: Total, Audited, Contributors) */}
